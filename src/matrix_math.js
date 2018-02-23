@@ -29,7 +29,7 @@ export function makeScaleMatrix(sx,sy){
 
   myMatrix[0] = sx;
   myMatrix[4] = sy;
-
+ // console.log("hit");
   return myMatrix;
 }
 
@@ -80,6 +80,10 @@ export function transformPoint (P,M) {
   let myPoint = new Point(P.x,P.y,1);
   myPoint.x = M[6] + P.x;
   myPoint.y = M[7] + P.y;
+  myPoint.z = 1;
+
+
+ 
   // Return matrix
   return myPoint;
 }
@@ -99,25 +103,45 @@ export function transformPoint (P,M) {
 //   - The order in which you combine the transformations is VERY important
 
 export function rebuildTransformationMatrix(shape){
-  var tempMatrix = shape.M;
-  shape.rotAroundCenter = true; // todo remove this, the GUI controls the shape.rotAroundCenter
-  
-  var tranMatrix = makeTranslationMatrix(shape.tx, shape.ty);
-  
-  var center = shape.computeCentroid(); // returns a point
-  
-  // translate the shape first to the center
-  var shapeCenterMatrix = makeTranslationMatrix(shape.tx, shape.ty);
+  // Temp matrix
+  var compositeMatrix = null;
+
+  var center = shape.computeCentroid();                       // get the center of the shape
+  var toOrigin = makeTranslationMatrix(-center.x, -center.y); // translate the shape to the origin
+  var fromOrigin = makeTranslationMatrix(center.x, center.y); // Bring the shape back to its center
+
+
+  var translationMatrix = makeTranslationMatrix(shape.tx,shape.ty);
+  // compositeMatrix = translationMatrix;
+  var m = toOrigin;
   var scaleMatrix = makeScaleMatrix(shape.sx, shape.sy);
+  m = multiplyMatrices(scaleMatrix,m);
+  m = multiplyMatrices(fromOrigin,m);
+
+  var rotationMatrix = null;
+
+  compositeMatrix = m;
   
-  var rotMatrix = makeRotationMatrix(shape.rotAngle);
-
-  var newRTM = multiplyMatrices(shape.M,scaleMatrix);
-  newRTM = multiplyMatrices(newRTM,rotMatrix);
-  newRTM = multiplyMatrices(newRTM, tranMatrix);
-
-  shape.M = newRTM;
-
+  if(shape.rotAroundCenter == true){
+    // if shape.rotAngeCenter is false then rotate around the shape around the origin
+    
+    
+    rotationMatrix = makeRotationMatrix(shape.rotAngle); // get the rotation matrix
+    rotationMatrix = multiplyMatrices(rotationMatrix,toOrigin); // rotate the shape on the origin
+    rotationMatrix = multiplyMatrices(rotationMatrix,fromOrigin) // moves shape back where it was created
+    
+    
+  }else{
+    // if the shape.rotAngleCenter is true, then rotate around the shape around it's center.
+    // Maybe translation and scaling goes here as well.
+    rotationMatrix = makeRotationMatrix(shape.rotAngle); // get the rotation matrix
+    
+  }
+  
+   // Formula shape.M = T * R * S
+   compositeMatrix = multiplyMatrices(translationMatrix,rotationMatrix);
+   compositeMatrix = multiplyMatrices(compositeMatrix, scaleMatrix);
+   shape.M = compositeMatrix;
 }
 
 /**
